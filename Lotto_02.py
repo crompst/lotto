@@ -94,4 +94,32 @@ st.title("🔥 Hot-Number Picker")
 st.write("과거 당첨 빈도가 높은 번호들을 분석하여 5세트를 추천합니다.")
 
 # 번호 생성 로직 (고빈도 가중치 고정)
-if
+if st.button("새로운 추천 번호 5세트 뽑기"):
+    all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
+    counts = Counter(all_nums)
+    weights = [counts.get(i, 1) for i in range(1, 46)]
+    
+    st.session_state.lucky_sets = []
+    for _ in range(5):
+        res = sorted(random.choices(range(1, 46), weights=weights, k=6))
+        while len(set(res)) < 6: # 중복 방지
+            res = sorted(random.choices(range(1, 46), weights=weights, k=6))
+        st.session_state.lucky_sets.append(res)
+
+st.divider()
+
+# 결과 출력 (배경과 대비되는 카드 레이아웃)
+if 'lucky_sets' in st.session_state:
+    for idx, s in enumerate(st.session_state.lucky_sets):
+        html_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in s])
+        st.markdown(f"""
+        <div class="set-card">
+            <div class="set-label">Recommended Set {idx+1}</div>
+            {html_balls}
+        </div>
+        """, unsafe_allow_html=True)
+else:
+    st.info("위의 버튼을 눌러 번호를 생성하세요.")
+
+# 푸터 정보 (간략화)
+st.caption(f"최근 데이터 기준 회차: {df['회차'].max()}회")
