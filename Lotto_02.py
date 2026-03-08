@@ -4,22 +4,12 @@ import random
 from collections import Counter
 
 # --- 설정 및 데이터 로드 ---
-st.set_page_config(page_title="Lotto Hot-Pick", layout="centered")
+st.set_page_config(page_title="Lotto Hot-Pick Pro", layout="centered")
 
-# 다크 테마 및 고대비 스타일 적용
 st.markdown("""
     <style>
-    /* 전체 배경을 어두운 네이비톤으로 설정 */
-    .stApp { 
-        background-color: #1a1c24; 
-    }
-    
-    /* 텍스트 색상 전체 조정 */
-    h1, h2, h3, p, div {
-        color: #ffffff !important;
-    }
-
-    /* 번호 세트 카드 디자인 (배경과 확연히 구분되도록 어두운 회색) */
+    .stApp { background-color: #1a1c24; }
+    h1, h2, h3, p, div { color: #ffffff !important; }
     .set-card {
         background-color: #2d303d;
         padding: 20px;
@@ -29,17 +19,7 @@ st.markdown("""
         margin-bottom: 15px;
         text-align: center;
     }
-    
-    .set-label {
-        color: #9aa0b1;
-        font-size: 13px;
-        margin-bottom: 10px;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    /* 로또 공 디자인 */
+    .set-label { color: #9aa0b1; font-size: 13px; margin-bottom: 10px; font-weight: bold; text-transform: uppercase; }
     .lotto-ball {
         display: inline-block;
         width: 45px; height: 45px;
@@ -50,24 +30,8 @@ st.markdown("""
         color: white;
         font-weight: 800;
         font-size: 18px;
-        box-shadow: 0 3px 6px rgba(0,0,0,0.4);
     }
-
-    /* 버튼 스타일 강화 */
-    .stButton>button {
-        background-color: #4e73df;
-        color: white;
-        border: none;
-        border-radius: 10px;
-        height: 3.5em;
-        font-weight: bold;
-        font-size: 18px;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #2e59d9;
-        border: none;
-    }
+    .stButton>button { background-color: #4e73df; color: white; border-radius: 10px; height: 3.5em; font-weight: bold; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,50 +40,66 @@ def load_data():
     return pd.read_csv('lotto_data.csv')
 
 def get_ball_color(n):
-    if 1 <= n <= 10: return "#EDB100" # 골드 노랑
-    if 11 <= n <= 20: return "#2885D6" # 블루
-    if 21 <= n <= 30: return "#E85151" # 레드
-    if 31 <= n <= 40: return "#7A7A7A" # 그레이
-    return "#59A616"                   # 그린
+    if 1 <= n <= 10: return "#EDB100"
+    if 11 <= n <= 20: return "#2885D6"
+    if 21 <= n <= 30: return "#E85151"
+    if 31 <= n <= 40: return "#7A7A7A"
+    return "#59A616"
 
-# 데이터 읽기
-try:
-    df = pd.read_csv('lotto_data.csv')
-except:
-    st.error("데이터 파일이 없습니다.")
-    st.stop()
+df = load_data()
 
-# --- 메인 대시보드 ---
-st.title("🔥 Hot-Number Picker")
-st.write("과거 당첨 빈도가 높은 번호들을 분석하여 5세트를 추천합니다.")
+# --- 고도화된 번호 생성 엔진 ---
+def generate_advanced_set(weights):
+    while True:
+        # 1. 가중치 기반 랜덤 추출
+        res = sorted(random.choices(range(1, 46), weights=weights, k=6))
+        
+        # 중복 제거 확인
+        if len(set(res)) < 6: continue
+        
+        # 2. 합계 필터 (100 ~ 175)
+        total_sum = sum(res)
+        if not (100 <= total_sum <= 175): continue
+        
+        # 3. 홀짝 비율 필터 (홀:짝 비율이 2:4, 3:3, 4:2 중 하나여야 함)
+        odds = len([n for n in res if n % 2 != 0])
+        if odds not in [2, 3, 4]: continue
+        
+        # 4. 연속 번호 필터 (3개 이상 연속 방지)
+        consecutive = 0
+        max_consecutive = 0
+        for i in range(len(res)-1):
+            if res[i] + 1 == res[i+1]:
+                consecutive += 1
+            else:
+                consecutive = 0
+            max_consecutive = max(max_consecutive, consecutive)
+        if max_consecutive >= 2: continue # 3연번 이상 탈락
+        
+        return res
 
-# 번호 생성 로직 (고빈도 가중치 고정)
-if st.button("새로운 추천 번호 5세트 뽑기"):
+# --- 메인 UI ---
+st.title("🚀 Advanced Hot-Picker")
+st.write("빈도 분석 + 합계/홀짝/연번 필터가 적용된 정밀 알고리즘입니다.")
+
+if st.button("🔥 정밀 분석된 5세트 생성"):
     all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
     counts = Counter(all_nums)
     weights = [counts.get(i, 1) for i in range(1, 46)]
     
-    st.session_state.lucky_sets = []
-    for _ in range(5):
-        res = sorted(random.choices(range(1, 46), weights=weights, k=6))
-        while len(set(res)) < 6: # 중복 방지
-            res = sorted(random.choices(range(1, 46), weights=weights, k=6))
-        st.session_state.lucky_sets.append(res)
+    st.session_state.lucky_sets = [generate_advanced_set(weights) for _ in range(5)]
 
 st.divider()
 
-# 결과 출력 (배경과 대비되는 카드 레이아웃)
 if 'lucky_sets' in st.session_state:
     for idx, s in enumerate(st.session_state.lucky_sets):
         html_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in s])
         st.markdown(f"""
         <div class="set-card">
-            <div class="set-label">Recommended Set {idx+1}</div>
+            <div class="set-label">Verified Set {idx+1}</div>
             {html_balls}
+            <div style="font-size:11px; color:#666; margin-top:10px;">
+                Sum: {sum(s)} | Odds: {len([n for n in s if n%2!=0])}
+            </div>
         </div>
         """, unsafe_allow_html=True)
-else:
-    st.info("위의 버튼을 눌러 번호를 생성하세요.")
-
-# 푸터 정보 (간략화)
-st.caption(f"최근 데이터 기준 회차: {df['회차'].max()}회")
