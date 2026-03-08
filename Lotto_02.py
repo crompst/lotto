@@ -8,28 +8,40 @@ from collections import Counter
 # --- 설정 및 데이터 로드 ---
 st.set_page_config(page_title="Lotto Analysis Pro", layout="wide")
 
-# UI 커스텀 스타일 (카드형 레이아웃 및 폰트 강조)
+# UI 커스텀 스타일 (배경 대비 강화 및 카드형 레이아웃)
 st.markdown("""
     <style>
-    .stApp { background-color: #f4f7f9; }
-    .main-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
+    /* 전체 배경을 연한 회색으로 설정하여 흰색 카드 부각 */
+    .stApp { background-color: #eef2f6; }
+    
+    /* 카드 디자인 */
+    .set-card {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 12px;
+        border-left: 5px solid #3366ff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 12px;
     }
+    
+    .set-title {
+        font-weight: bold;
+        color: #334455;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
     .lotto-ball {
         display: inline-block;
-        width: 48px; height: 48px;
-        line-height: 48px;
+        width: 42px; height: 42px;
+        line-height: 42px;
         border-radius: 50%;
         text-align: center;
-        margin: 4px;
+        margin: 3px;
         color: white;
         font-weight: 800;
-        font-size: 18px;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        font-size: 16px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -47,87 +59,70 @@ def get_ball_color(n):
 
 df = load_data()
 
-# --- 사이드바 ---
-st.sidebar.header("⚙️ 분석 필터")
-method = st.sidebar.select_slider("추출 전략 선택", options=["Hot", "Balanced", "Cold"])
-st.sidebar.caption("Hot: 고빈도 위주 | Balanced: 평균합 기준 | Cold: 미출현 위주")
+# --- 상단: 대시보드 타이틀 ---
+st.title("🎯 Lotto High-Frequency Analysis")
+st.info("💡 분석 필터가 **'고빈도(Hot) 데이터 기반'**으로 고정되었습니다.")
 
-# --- 상단: 번호 생성 섹션 ---
-st.title("📊 Lotto Insight Dashboard")
-
-with st.container():
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        if st.button("✨ 새로운 행운 번호 생성"):
-            if method == "Hot":
-                all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
-                counts = Counter(all_nums)
-                st.session_state.res = sorted(random.choices(range(1, 46), weights=[counts.get(i, 1) for i in range(1, 46)], k=6))
-            elif method == "Cold":
-                recent = set(df.tail(15)[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten())
-                st.session_state.res = sorted(random.sample([i for i in range(1, 46) if i not in recent], 6))
-            else:
-                while True:
-                    nums = sorted(random.sample(range(1, 46), 6))
-                    if 110 <= sum(nums) <= 165: 
-                        st.session_state.res = nums
-                        break
+# --- 메인: 5세트 번호 생성 ---
+if st.button("🔥 고빈도 기반 행운의 5세트 생성"):
+    # 고빈도 가중치 계산
+    all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
+    counts = Counter(all_nums)
+    weights = [counts.get(i, 1) for i in range(1, 46)]
     
-    with col2:
-        if 'res' in st.session_state:
-            html_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in st.session_state.res])
-            st.markdown(html_balls, unsafe_allow_html=True)
+    st.session_state.sets = []
+    for _ in range(5):
+        # 가중치를 적용한 랜덤 추출 (중복 제거를 위해 샘플링 방식 사용)
+        res = sorted(random.choices(range(1, 46), weights=weights, k=6))
+        # 만약 한 세트 내 중복이 생기면 재추출 (드문 경우)
+        while len(set(res)) < 6:
+            res = sorted(random.choices(range(1, 46), weights=weights, k=6))
+        st.session_state.sets.append(res)
+
+# 생성된 번호 출력 (5세트 카드 레이아웃)
+if 'sets' in st.session_state:
+    for idx, s in enumerate(st.session_state.sets):
+        with st.container():
+            html_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in s])
+            st.markdown(f"""
+            <div class="set-card">
+                <div class="set-title">SET {idx+1}</div>
+                {html_balls}
+            </div>
+            """, unsafe_allow_html=True)
 
 st.divider()
 
-# --- 중단: 시각화 강화 섹션 ---
-tab1, tab2 = st.tabs(["📈 출현 빈도 정밀 분석", "📉 흐름 분석"])
+# --- 중단: 시각화 섹션 (스케일 조정) ---
+st.subheader("📊 역대 출현 빈도 상세 분석")
 
-with tab1:
-    all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
-    count_df = pd.DataFrame(Counter(all_nums).items(), columns=['번호', '출현횟수']).sort_values('번호')
-    
-    # 평균 출현 횟수 계산
-    avg_count = count_df['출현횟수'].mean()
+all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
+count_df = pd.DataFrame(Counter(all_nums).items(), columns=['번호', '출현횟수']).sort_values('번호')
+avg_count = count_df['출현횟수'].mean()
 
-    # 1. 막대 그래프 최적화 (색상 스케일 및 폰트 조정)
-    fig_bar = px.bar(count_df, x='번호', y='출현횟수', 
-                     color='출현횟수', 
-                     color_continuous_scale='Bluered', # 많이 나올수록 빨간색에 가깝게
-                     text='출현횟수', # 막대 위에 숫자 표시
-                     title='번호별 누적 당첨 빈도 (상세)')
-    
-    fig_bar.update_traces(textposition='outside', textfont_size=10)
-    fig_bar.add_hline(y=avg_count, line_dash="dot", line_color="green", annotation_text="평균 빈도")
-    
-    # y축 범위 조절로 차이 극대화 (스케일 조정)
-    min_y = count_df['출현횟수'].min() - 5
-    max_y = count_df['출현횟수'].max() + 10
-    fig_bar.update_yaxes(range=[min_y, max_y])
-    
-    fig_bar.update_layout(xaxis=dict(dtick=1), height=500, margin=dict(t=50, b=20))
-    st.plotly_chart(fig_bar, use_container_width=True)
+# 막대 그래프 시각화 (Y축 스케일 최적화)
+fig_bar = px.bar(count_df, x='번호', y='출현횟수', 
+                 color='출현횟수', 
+                 color_continuous_scale='Reds', # 고빈도 강조를 위해 레드 스케일
+                 text='출현횟수')
 
-with tab2:
-    col_a, col_b = st.columns(2)
-    with col_a:
-        # 최근 50회차 합계 분포
-        df['합계'] = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].sum(axis=1)
-        fig_sum = px.histogram(df, x='합계', nbins=30, title="당첨번호 총합 분포 (정규성 확인)", color_discrete_sequence=['#636EFA'])
-        st.plotly_chart(fig_sum, use_container_width=True)
-    
-    with col_b:
-        # 홀짝 비율 시각화 (최근 100회)
-        recent_df = df.tail(100).copy()
-        def get_odd_even(row):
-            nums = [row['번호1'], row['번호2'], row['번호3'], row['번호4'], row['번호5'], row['번호6']]
-            odds = len([n for n in nums if n % 2 != 0])
-            return f"{odds}:{6-odds}"
-        
-        recent_df['홀짝비율'] = recent_df.apply(get_odd_even, axis=1)
-        ratio_df = recent_df['홀짝비율'].value_counts().reset_index()
-        fig_pie = px.pie(ratio_df, values='count', names='홀짝비율', title="최근 100회 홀:짝 비율", hole=0.4)
-        st.plotly_chart(fig_pie, use_container_width=True)
+fig_bar.update_traces(textposition='outside', textfont_size=9, marker_line_color='rgb(8,48,107)', marker_line_width=1)
+fig_bar.add_hline(y=avg_count, line_dash="dot", line_color="blue", annotation_text="평균 빈도")
 
-# --- 하단: 데이터 요약 ---
-st.expander("📄 데이터 원본 보기").dataframe(df.tail(30).sort_values('회차', ascending=False), use_container_width=True)
+# 스케일 조정: 차이를 더 극명하게 보기 위해 최소값 근처로 고정
+min_y = count_df['출현횟수'].min() - 3
+max_y = count_df['출현횟수'].max() + 7
+fig_bar.update_yaxes(range=[min_y, max_y])
+
+fig_bar.update_layout(
+    xaxis=dict(dtick=1), 
+    height=450, 
+    margin=dict(t=30, b=20, l=10, r=10),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+st.plotly_chart(fig_bar, use_container_width=True)
+
+# 하단 데이터 테이블
+with st.expander("데이터 원본 확인"):
+    st.dataframe(df.tail(15).sort_values('회차', ascending=False), use_container_width=True)
