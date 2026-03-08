@@ -1,47 +1,72 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import random
 from collections import Counter
 
 # --- 설정 및 데이터 로드 ---
-st.set_page_config(page_title="Lotto Analysis Pro", layout="wide")
+st.set_page_config(page_title="Lotto Hot-Pick", layout="centered")
 
-# UI 커스텀 스타일 (배경 대비 강화 및 카드형 레이아웃)
+# 다크 테마 및 고대비 스타일 적용
 st.markdown("""
     <style>
-    /* 전체 배경을 연한 회색으로 설정하여 흰색 카드 부각 */
-    .stApp { background-color: #eef2f6; }
-    
-    /* 카드 디자인 */
-    .set-card {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 12px;
-        border-left: 5px solid #3366ff;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin-bottom: 12px;
+    /* 전체 배경을 어두운 네이비톤으로 설정 */
+    .stApp { 
+        background-color: #1a1c24; 
     }
     
-    .set-title {
-        font-weight: bold;
-        color: #334455;
-        margin-bottom: 8px;
-        font-size: 14px;
+    /* 텍스트 색상 전체 조정 */
+    h1, h2, h3, p, div {
+        color: #ffffff !important;
     }
 
+    /* 번호 세트 카드 디자인 (배경과 확연히 구분되도록 어두운 회색) */
+    .set-card {
+        background-color: #2d303d;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #3e4255;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .set-label {
+        color: #9aa0b1;
+        font-size: 13px;
+        margin-bottom: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* 로또 공 디자인 */
     .lotto-ball {
         display: inline-block;
-        width: 42px; height: 42px;
-        line-height: 42px;
+        width: 45px; height: 45px;
+        line-height: 45px;
         border-radius: 50%;
         text-align: center;
-        margin: 3px;
+        margin: 5px;
         color: white;
         font-weight: 800;
-        font-size: 16px;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        font-size: 18px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    }
+
+    /* 버튼 스타일 강화 */
+    .stButton>button {
+        background-color: #4e73df;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        height: 3.5em;
+        font-weight: bold;
+        font-size: 18px;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #2e59d9;
+        border: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -51,78 +76,22 @@ def load_data():
     return pd.read_csv('lotto_data.csv')
 
 def get_ball_color(n):
-    if 1 <= n <= 10: return "#fbc400" # 노랑
-    if 11 <= n <= 20: return "#69c8f2" # 파랑
-    if 21 <= n <= 30: return "#ff7272" # 빨강
-    if 31 <= n <= 40: return "#aaa"    # 회색
-    return "#b0d840"                   # 초록
+    if 1 <= n <= 10: return "#EDB100" # 골드 노랑
+    if 11 <= n <= 20: return "#2885D6" # 블루
+    if 21 <= n <= 30: return "#E85151" # 레드
+    if 31 <= n <= 40: return "#7A7A7A" # 그레이
+    return "#59A616"                   # 그린
 
-df = load_data()
+# 데이터 읽기
+try:
+    df = pd.read_csv('lotto_data.csv')
+except:
+    st.error("데이터 파일이 없습니다.")
+    st.stop()
 
-# --- 상단: 대시보드 타이틀 ---
-st.title("🎯 Lotto High-Frequency Analysis")
-st.info("💡 분석 필터가 **'고빈도(Hot) 데이터 기반'**으로 고정되었습니다.")
+# --- 메인 대시보드 ---
+st.title("🔥 Hot-Number Picker")
+st.write("과거 당첨 빈도가 높은 번호들을 분석하여 5세트를 추천합니다.")
 
-# --- 메인: 5세트 번호 생성 ---
-if st.button("🔥 고빈도 기반 행운의 5세트 생성"):
-    # 고빈도 가중치 계산
-    all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
-    counts = Counter(all_nums)
-    weights = [counts.get(i, 1) for i in range(1, 46)]
-    
-    st.session_state.sets = []
-    for _ in range(5):
-        # 가중치를 적용한 랜덤 추출 (중복 제거를 위해 샘플링 방식 사용)
-        res = sorted(random.choices(range(1, 46), weights=weights, k=6))
-        # 만약 한 세트 내 중복이 생기면 재추출 (드문 경우)
-        while len(set(res)) < 6:
-            res = sorted(random.choices(range(1, 46), weights=weights, k=6))
-        st.session_state.sets.append(res)
-
-# 생성된 번호 출력 (5세트 카드 레이아웃)
-if 'sets' in st.session_state:
-    for idx, s in enumerate(st.session_state.sets):
-        with st.container():
-            html_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in s])
-            st.markdown(f"""
-            <div class="set-card">
-                <div class="set-title">SET {idx+1}</div>
-                {html_balls}
-            </div>
-            """, unsafe_allow_html=True)
-
-st.divider()
-
-# --- 중단: 시각화 섹션 (스케일 조정) ---
-st.subheader("📊 역대 출현 빈도 상세 분석")
-
-all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
-count_df = pd.DataFrame(Counter(all_nums).items(), columns=['번호', '출현횟수']).sort_values('번호')
-avg_count = count_df['출현횟수'].mean()
-
-# 막대 그래프 시각화 (Y축 스케일 최적화)
-fig_bar = px.bar(count_df, x='번호', y='출현횟수', 
-                 color='출현횟수', 
-                 color_continuous_scale='Reds', # 고빈도 강조를 위해 레드 스케일
-                 text='출현횟수')
-
-fig_bar.update_traces(textposition='outside', textfont_size=9, marker_line_color='rgb(8,48,107)', marker_line_width=1)
-fig_bar.add_hline(y=avg_count, line_dash="dot", line_color="blue", annotation_text="평균 빈도")
-
-# 스케일 조정: 차이를 더 극명하게 보기 위해 최소값 근처로 고정
-min_y = count_df['출현횟수'].min() - 3
-max_y = count_df['출현횟수'].max() + 7
-fig_bar.update_yaxes(range=[min_y, max_y])
-
-fig_bar.update_layout(
-    xaxis=dict(dtick=1), 
-    height=450, 
-    margin=dict(t=30, b=20, l=10, r=10),
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)'
-)
-st.plotly_chart(fig_bar, use_container_width=True)
-
-# 하단 데이터 테이블
-with st.expander("데이터 원본 확인"):
-    st.dataframe(df.tail(15).sort_values('회차', ascending=False), use_container_width=True)
+# 번호 생성 로직 (고빈도 가중치 고정)
+if
