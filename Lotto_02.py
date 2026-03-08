@@ -3,38 +3,26 @@ import pandas as pd
 import random
 from collections import Counter
 
-# --- 설정 및 데이터 로드 ---
-st.set_page_config(page_title="Lotto AI & Checker", layout="centered")
-
+# --- 설정 및 스타일 ---
+st.set_page_config(page_title="Lotto Probability Optimizer", layout="centered")
 st.markdown("""
     <style>
-    .stApp { background-color: #1a1c24; }
-    h1, h2, h3, p, div, span { color: #ffffff !important; }
+    .stApp { background-color: #0e1117; }
+    h1, h2, h3, p, span { color: #ffffff !important; }
     .set-card {
-        background-color: #2d303d;
-        padding: 20px;
-        border-radius: 15px;
-        border: 1px solid #4e73df;
-        position: relative;
-        margin-bottom: 20px;
-        text-align: center;
-    }
-    .score-badge {
-        position: absolute; top: -10px; right: -10px;
-        background: linear-gradient(135deg, #4e73df, #224abe);
-        color: white !important; padding: 5px 12px;
-        border-radius: 20px; font-weight: bold; font-size: 12px;
-    }
-    .result-badge {
-        margin-top: 10px; padding: 5px; border-radius: 8px;
-        background-color: #3e4255; font-weight: bold; font-size: 14px;
+        background-color: #1f2937;
+        padding: 20px; border-radius: 15px; border: 1px solid #3b82f6;
+        margin-bottom: 15px; text-align: center;
     }
     .lotto-ball {
-        display: inline-block; width: 40px; height: 40px;
-        line-height: 40px; border-radius: 50%; text-align: center;
-        margin: 3px; color: white; font-weight: 800; font-size: 16px;
+        display: inline-block; width: 42px; height: 42px; line-height: 42px;
+        border-radius: 50%; text-align: center; margin: 3px;
+        color: white; font-weight: 800; font-size: 16px;
     }
-    .stButton>button { background-color: #4e73df; color: white; border-radius: 10px; height: 3.5em; font-weight: bold; width: 100%; }
+    .stButton>button { 
+        background: linear-gradient(90deg, #3b82f6, #2563eb); 
+        color: white; border-radius: 12px; height: 4em; font-weight: bold; width: 100%;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -43,78 +31,66 @@ def load_data():
     return pd.read_csv('lotto_data.csv')
 
 def get_ball_color(n):
-    if 1 <= n <= 10: return "#EDB100"
-    if 11 <= n <= 20: return "#2885D6"
-    if 21 <= n <= 30: return "#E85151"
-    if 31 <= n <= 40: return "#7A7A7A"
-    return "#59A616"
+    if 1 <= n <= 10: return "#fbbf24"
+    if 11 <= n <= 20: return "#3b82f6"
+    if 21 <= n <= 30: return "#ef4444"
+    if 31 <= n <= 40: return "#9ca3af"
+    return "#10b981"
 
-df = load_data()
-latest_draw = df.iloc[-1] # 가장 최근 회차 데이터
-
-# --- 로직: 당첨 확인 함수 ---
-def check_win(my_nums, win_nums, bonus):
-    matched = len(set(my_nums) & set(win_nums))
-    if matched == 6: return "🥇 1등 (전부 일치!)"
-    if matched == 5 and bonus in my_nums: return "🥈 2등 (5개 + 보너스)"
-    if matched == 5: return "🥉 3등 (5개 일치)"
-    if matched == 4: return "4등 (5,000원)"
-    if matched == 3: return "5등 (5,000원)"
-    return f"낙첨 ({matched}개 일치)"
-
-# --- 메인 UI ---
-st.title("🛡️ AI Picker & Checker")
-st.write(f"현재 데이터 기준: **{int(latest_draw['회차'])}회차**")
-
-col_btn1, col_btn2 = st.columns(2)
-
-with col_btn1:
-    if st.button("🔥 고빈도 5세트 생성"):
-        all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
-        counts = Counter(all_nums)
-        weights = [counts.get(i, 1) for i in range(1, 46)]
+# --- 핵심: 확률 최적화 엔진 ---
+def optimize_lotto_set(weights, last_win_nums):
+    while True:
+        # 1. 가중치 기반 생성
+        res = sorted(random.choices(range(1, 46), weights=weights, k=6))
+        if len(set(res)) < 6: continue
         
-        new_sets = []
-        for _ in range(5):
-            res = sorted(random.choices(range(1, 46), weights=weights, k=6))
-            while len(set(res)) < 6: res = sorted(random.choices(range(1, 46), weights=weights, k=6))
-            new_sets.append(res)
-        st.session_state.current_sets = new_sets
-        st.session_state.checked = False
+        # 2. 합계 필터 (가장 확률 높은 120~160 구간)
+        if not (120 <= sum(res) <= 160): continue
+        
+        # 3. 홀짝 비율 (3:3 또는 2:4/4:2로 제한)
+        odds = len([n for n in res if n % 2 != 0])
+        if odds not in [2, 3, 4]: continue
+        
+        # 4. 이월수 필터 (지난주 번호가 1~2개 포함될 때 확률 높음)
+        carry_over = len(set(res) & set(last_win_nums))
+        if carry_over not in [1, 2]: continue
+        
+        # 5. AC값 계산 (복잡도 검증)
+        diffs = set()
+        for i in range(len(res)):
+            for j in range(i + 1, len(res)):
+                diffs.add(abs(res[i] - res[j]))
+        ac_val = len(diffs) - (6 - 1)
+        if ac_val < 7: continue # 패턴이 너무 단순하면 탈락
+        
+        return res, sum(res), odds
 
-with col_btn2:
-    if st.button("✅ 최신 회차 당첨 확인"):
-        if 'current_sets' in st.session_state:
-            st.session_state.checked = True
-        else:
-            st.warning("번호를 먼저 생성하세요!")
+# --- UI 실행 ---
+df = load_data()
+latest_draw = df.iloc[-1]
+last_nums = [latest_draw[f'번호{i}'] for i in range(1, 7)]
+
+st.title("🛡️ Probability Optimizer")
+st.write(f"현재 데이터 기준: **{int(latest_draw['회차'])}회차** 분석 중")
+
+if st.button("🚀 확률 최적화 5세트 생성 (AC & 이월수 필터링)"):
+    all_nums = df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
+    counts = Counter(all_nums)
+    weights = [counts.get(i, 1) for i in range(1, 46)]
+    
+    st.session_state.opt_sets = [optimize_lotto_set(weights, last_nums) for _ in range(5)]
 
 st.divider()
 
-# 결과 출력
-if 'current_sets' in st.session_state:
-    win_nums = [latest_draw['번호1'], latest_draw['번호2'], latest_draw['번호3'], 
-                latest_draw['번호4'], latest_draw['번호5'], latest_draw['번호6']]
-    bonus = latest_draw['보너스']
-
-    for idx, s in enumerate(st.session_state.current_sets):
+if 'opt_sets' in st.session_state:
+    for idx, (s, s_sum, s_odds) in enumerate(st.session_state.opt_sets):
         html_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(int(n))}">{int(n)}</div>' for n in s])
-        
-        result_html = ""
-        if st.session_state.get('checked', False):
-            res_text = check_win(s, win_nums, bonus)
-            result_html = f'<div class="result-badge">{res_text}</div>'
-
         st.markdown(f"""
         <div class="set-card">
-            <div class="score-badge">SET {idx+1}</div>
+            <div style="color:#60a5fa; font-size:12px; margin-bottom:10px; font-weight:bold;">OPTIMIZED SET {idx+1}</div>
             {html_balls}
-            {result_html}
+            <div style="font-size:11px; color:#9ca3af; margin-top:10px;">
+                Sum: {s_sum} | Odds:Evens {s_odds}:{6-s_odds} | Carry-over: Included
+            </div>
         </div>
         """, unsafe_allow_html=True)
-
-# 최신 당첨번호 안내 (참고용)
-with st.expander("📢 최신 당첨번호 보기"):
-    st.write(f"**제 {int(latest_draw['회차'])}회 당첨번호**")
-    win_balls = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(int(latest_draw[f"번호{i}"]))}">{int(latest_draw[f"번호{i}"])}</div>' for i in range(1, 7)])
-    st.markdown(f"{win_balls} + <div class='lotto-ball' style='background-color:{get_ball_color(int(latest_draw['보너스']))}'>{int(latest_draw['보너스'])}</div>", unsafe_allow_html=True)
