@@ -4,45 +4,67 @@ import random
 from collections import Counter
 from datetime import datetime
 
-# --- [1. 시인성 극대화 및 고대비 테마 설정] ---
-st.set_page_config(page_title="Lotto High-Contrast Pro", layout="centered")
+# --- [1. 화이트 제거 & 고대비 다크 스타일] ---
+st.set_page_config(page_title="Lotto Dark Vision", layout="centered")
 
 st.markdown("""
     <style>
-    /* 배경은 완전한 검정색으로 고정 */
-    .stApp { background-color: #000000 !important; }
+    /* 1. 배경을 완전한 블랙으로 고정 (흰색 여백 제거) */
+    .stApp { 
+        background-color: #000000 !important; 
+    }
     
-    /* 모든 텍스트를 순백색으로 강제 */
-    h1, h2, h3, p, span, label, div { color: #ffffff !important; font-family: 'Pretendard', sans-serif; }
-    
-    /* 입력창 디자인: 노란색 테두리와 흰색 배경으로 시인성 확보 */
+    /* 2. 모든 흰색 칸 제거: 입력창 배경을 어두운 회색으로 */
+    div[data-baseweb="input"] {
+        background-color: #1a1a1a !important;
+        border: 1px solid #FFFF00 !important; /* 테두리만 형광 노랑 */
+    }
+
+    /* 3. 입력창 내부 숫자 색상: 흰색 대신 형광 노란색 */
     .stNumberInput div div input {
-        background-color: #ffffff !important; 
-        color: #000000 !important; 
-        border: 3px solid #FFD700 !important;
-        border-radius: 10px !important;
+        background-color: #1a1a1a !important;
+        color: #FFFF00 !important;
         font-weight: bold !important;
         font-size: 24px !important;
-        height: 50px !important;
+        border: none !important;
     }
 
-    /* 사이드바 가독성 강화 */
+    /* 4. 사이드바 및 기타 요소에서 흰색 제거 */
     section[data-testid="stSidebar"] {
-        background-color: #111111 !important;
-        border-right: 2px solid #FFD700;
+        background-color: #0c0c0c !important;
+        border-right: 1px solid #333333;
+    }
+    
+    /* 5. 텍스트는 보일 정도의 밝은 회색/연한 하늘색으로 조정 */
+    h1, h2, h3, p, span, label, div { 
+        color: #e0e0e0 !important; 
     }
 
-    /* 결과 카드: 테두리를 밝게 하여 구분감 생성 */
+    /* 6. 버튼: 클릭 시에도 흰색으로 변하지 않게 고정 */
+    .stButton>button {
+        background-color: #003d80 !important;
+        color: #ffffff !important;
+        border: 1px solid #0056b3 !important;
+        border-radius: 10px !important;
+        height: 3.5em !important;
+        width: 100% !important;
+    }
+    .stButton>button:active, .stButton>button:focus {
+        background-color: #003d80 !important;
+        color: #ffffff !important;
+    }
+
+    /* 7. 결과 카드 디자인 */
     .set-card {
-        background: #1a1a1a;
+        background: #111111;
         padding: 20px;
         border-radius: 15px;
-        border: 2px solid #444444;
+        border: 1px solid #444444;
         margin-bottom: 20px;
         text-align: center;
     }
 
-    /* 로또 공: 그림자 효과를 강화하여 더 선명하게 */
+    /* 8. 로또 공: 눈부심을 방지하기 위해 밝기 소폭 하향 */
     .lotto-ball {
         display: inline-block;
         width: 45px; height: 45px;
@@ -53,19 +75,18 @@ st.markdown("""
         color: white !important;
         font-weight: 900;
         font-size: 18px;
-        box-shadow: 3px 3px 10px rgba(0,0,0,0.8);
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [2. 핵심 로직 및 데이터 처리] ---
+# --- [2. 데이터 및 로직] ---
 def get_ball_color(n):
     n = int(n)
-    if 1 <= n <= 10: return "#EAB308"
-    if 11 <= n <= 20: return "#3B82F6"
-    if 21 <= n <= 30: return "#EF4444"
-    if 31 <= n <= 40: return "#6B7280"
-    return "#22C55E"
+    if 1 <= n <= 10: return "#b8860b" # 다크 골드
+    if 11 <= n <= 20: return "#004080" # 다크 블루
+    if 21 <= n <= 30: return "#8b0000" # 다크 레드
+    if 31 <= n <= 40: return "#4f4f4f" # 다크 그레이
+    return "#006400"                   # 다크 그린
 
 def calculate_current_drwno():
     first_draw_date = datetime(2002, 12, 7)
@@ -77,55 +98,43 @@ def calculate_current_drwno():
 def load_data():
     return pd.read_csv('lotto_data.csv')
 
-# 데이터 로딩
-try:
-    df = load_data()
-except:
-    st.error("lotto_data.csv 파일을 찾을 수 없습니다.")
-    st.stop()
-
+df = load_data()
 auto_drwno = calculate_current_drwno()
 
-# --- [3. 사이드바 수동 입력창] ---
-st.sidebar.title("🛠️ 번호 수동 입력")
-st.sidebar.write("글씨가 안 보일 땐 아래 칸에 집중하세요!")
-
+# --- [3. 사이드바 수동 입력 (화이트 제거 버전)] ---
+st.sidebar.title("🛠️ ADMIN")
 with st.sidebar:
+    st.markdown("### 📝 당첨번호 입력")
     new_no = st.number_input("회차", value=auto_drwno, step=1)
-    st.markdown("---")
-    st.write("당첨번호 6개 입력")
-    # 한 줄에 하나씩 배치하여 가독성 확보
-    n1 = st.number_input("첫 번째 번호", 1, 45, 1, key='n1')
-    n2 = st.number_input("두 번째 번호", 1, 45, 2, key='n2')
-    n3 = st.number_input("세 번째 번호", 1, 45, 3, key='n3')
-    n4 = st.number_input("네 번째 번호", 1, 45, 4, key='n4')
-    n5 = st.number_input("다섯 번째 번호", 1, 45, 5, key='n5')
-    n6 = st.number_input("여섯 번째 번호", 1, 45, 6, key='n6')
-    bn = st.number_input("보너스 번호", 1, 45, 7, key='bn')
+    n1 = st.number_input("번호 1", 1, 45, 1, key='n1')
+    n2 = st.number_input("번호 2", 1, 45, 2, key='n2')
+    n3 = st.number_input("번호 3", 1, 45, 3, key='n3')
+    n4 = st.number_input("번호 4", 1, 45, 4, key='n4')
+    n5 = st.number_input("번호 5", 1, 45, 5, key='n5')
+    n6 = st.number_input("번호 6", 1, 45, 6, key='n6')
+    bn = st.number_input("보너스", 1, 45, 7, key='bn')
     
-    if st.button("✨ 입력 완료 (즉시 반영)"):
+    if st.button("✨ 입력 완료"):
         new_row = {'회차': new_no, '번호1': n1, '번호2': n2, '번호3': n3, '번호4': n4, '번호5': n5, '번호6': n6, '보너스': bn}
         st.session_state.temp_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        st.sidebar.success(f"{new_no}회차 반영됨!")
+        st.sidebar.success("데이터 반영됨!")
 
-# 최종 데이터 확정
 current_df = st.session_state.get('temp_df', df)
 latest_draw = current_df.iloc[-1]
 latest_no = int(latest_draw['회차'])
 win_nums = [int(latest_draw[f'번호{i}']) for i in range(1, 7)]
 bonus_num = int(latest_draw['보너스'])
 
-# --- [4. 메인 분석 영역] ---
+# --- [4. 메인 화면] ---
 st.title("🏆 Lotto Analysis Pro")
-st.write(f"분석 기준 회차: **제 {latest_no}회**")
+st.markdown(f"#### 현재 기준: {latest_no}회차")
 
-c_btn1, c_btn2 = st.columns(2)
-with c_btn1:
+c1, c2 = st.columns(2)
+with c1:
     if st.button("🚀 분석 번호 생성"):
         all_nums = current_df[['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']].values.flatten()
         counts = Counter(all_nums)
         weights = [counts.get(i, 1) for i in range(1, 46)]
-        
         sets = []
         for _ in range(5):
             res = sorted(random.choices(range(1, 46), weights=weights, k=6))
@@ -134,28 +143,21 @@ with c_btn1:
         st.session_state.current_sets = sets
         st.session_state.is_checked = False
 
-with c_btn2:
+with c2:
     if st.button("🔎 당첨 결과 확인"):
         if 'current_sets' in st.session_state:
             st.session_state.is_checked = True
 
-st.markdown("<br>", unsafe_allow_html=True)
-
 if 'current_sets' in st.session_state:
     for idx, s in enumerate(st.session_state.current_sets):
-        # 공 색상 함수(get_ball_color) 호출 오류 방지
         ball_html = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in s])
-        
         res_text = ""
         if st.session_state.get('is_checked', False):
             matched = len(set(s) & set(win_nums))
-            res_text = f"<div style='margin-top:10px; font-weight:bold; color:#FFD700;'>일치 개수: {matched}개</div>"
-            if matched == 6: res_text = "<div style='margin-top:10px; font-weight:bold; color:#FFD700;'>🥇 1등 당첨!</div>"
-        
+            res_text = f"<div style='margin-top:10px; font-weight:bold; color:#FFFF00;'>맞은 개수: {matched}개</div>"
         st.markdown(f'<div class="set-card">SET {idx+1}<br>{ball_html}{res_text}</div>', unsafe_allow_html=True)
 
-# 하단 당첨번호 안내
-st.write("---")
-st.write(f"📢 **현재 당첨 확인 기준 ({latest_no}회)**")
+st.markdown("---")
+st.write(f"📢 **이번 주 당첨번호 기준 ({latest_no}회)**")
 win_html = "".join([f'<div class="lotto-ball" style="background-color:{get_ball_color(n)}">{n}</div>' for n in win_nums])
 st.markdown(f"{win_html} + <div class='lotto-ball' style='background-color:{get_ball_color(bonus_num)}'>{bonus_num}</div>", unsafe_allow_html=True)
